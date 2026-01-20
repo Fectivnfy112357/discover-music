@@ -1,3 +1,5 @@
+package com.music.controller;
+
 import com.music.service.MusicService;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -145,9 +147,9 @@ public class MusicController {
     public Map<String, Object> saveToServer(@RequestBody Map<String, String> data) {
         Map<String, Object> result = new java.util.HashMap<>();
         
-        String artist = data.getOrDefault("artist", "Unknown Artist").replaceAll("[/\\\\:*?\"<>|]", "_");
-        String album = data.getOrDefault("album", "Unknown Album").replaceAll("[/\\\\:*?\"<>|]", "_");
-        String songName = data.getOrDefault("songName", "Unknown Song").replaceAll("[/\\\\:*?\"<>|]", "_");
+        String artist = data.getOrDefault("artist", "未知歌手").replaceAll("[/\\\\:*?\"<>|]", "_");
+        String album = data.getOrDefault("album", "未知专辑").replaceAll("[/\\\\:*?\"<>|]", "_");
+        String songName = data.getOrDefault("songName", "未知歌曲").replaceAll("[/\\\\:*?\"<>|]", "_");
         
         String audioUrl = data.get("audioUrl");
         String lyricText = data.get("lyricText");
