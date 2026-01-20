@@ -1,8 +1,11 @@
-package com.music.controller;
-
 import com.music.service.MusicService;
+import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,15 +14,13 @@ import java.io.OutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/music")
 public class MusicController {
@@ -50,6 +51,7 @@ public class MusicController {
                 default: return "{\"error\": \"Unsupported source\"}";
             }
         } catch (Exception e) {
+            log.error("Search error: source={}, keyword={}", source, keyword, e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
     }
@@ -68,6 +70,7 @@ public class MusicController {
                 default: return "{\"error\": \"Unsupported source\"}";
             }
         } catch (Exception e) {
+            log.error("Detail error: source={}, id={}", source, id, e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
     }
@@ -99,7 +102,7 @@ public class MusicController {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Download error: url={}, name={}", url, name, e);
         }
     }
 
@@ -131,7 +134,7 @@ public class MusicController {
                 zos.finish();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Batch download error", e);
         }
     }
 
@@ -212,7 +215,7 @@ public class MusicController {
             return result;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Save to server error", e);
             result.put("code", 500);
             result.put("msg", "Error: " + e.getMessage());
             return result;
@@ -237,7 +240,7 @@ public class MusicController {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Failed to download file to zip: " + entryName + " - " + e.getMessage());
+            log.error("Failed to download file to zip: {}", entryName, e);
         }
     }
 
