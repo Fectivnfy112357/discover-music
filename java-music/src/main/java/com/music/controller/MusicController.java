@@ -28,8 +28,8 @@ public class MusicController {
     private MusicService musicService;
 
     // 硬编码的服务器存储路径
-    //private static final String SERVER_ROOT_PATH = "/www/dk_project/dk_app/alist/data/data/我的音乐";
-    private static final String SERVER_ROOT_PATH = "C:\\Users\\86191\\Downloads\\test";
+    private static final String SERVER_ROOT_PATH = "/www/dk_project/dk_app/alist/data/data/我的音乐";
+    //private static final String SERVER_ROOT_PATH = "C:\\Users\\86191\\Downloads\\test";
 
     private final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
