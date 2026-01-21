@@ -13,14 +13,18 @@ const SOURCES = [
 
 const HOT_TAGS = ['周杰伦', '林俊杰', '陈奕迅', 'Taylor Swift', '抖音热歌', '古典音乐', 'K-Pop'];
 
-const Home = () => {
-  const [keyword, setKeyword] = useState('');
-  const [source, setSource] = useState('kw');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasSearched, setHasSearched] = useState(false);
+const Home = ({ searchState, setSearchState }) => {
+  const { keyword, source, results, loading, page, hasSearched } = searchState;
   const navigate = useNavigate();
+
+  const updateState = (updates) => setSearchState(prev => ({ ...prev, ...updates }));
+
+  const setKeyword = (val) => updateState({ keyword: val });
+  const setSource = (val) => updateState({ source: val });
+  const setResults = (val) => updateState({ results: val });
+  const setLoading = (val) => updateState({ loading: val });
+  const setPage = (val) => updateState({ page: val });
+  const setHasSearched = (val) => updateState({ hasSearched: val });
 
   const handleSearch = async (newPage = 1, targetSource = source, targetKeyword = keyword) => {
     const searchKeyword = targetKeyword.trim();
