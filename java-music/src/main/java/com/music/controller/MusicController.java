@@ -30,6 +30,9 @@ public class MusicController {
     @Autowired
     private MusicService musicService;
 
+    @Autowired
+    private com.music.service.AudioTagService audioTagService;
+
     // 硬编码的服务器存储路径
     private static final String SERVER_ROOT_PATH = "/www/dk_project/dk_app/alist/data/data/我的音乐";
     //private static final String SERVER_ROOT_PATH = "C:\\Users\\86191\\Downloads\\test";
@@ -147,9 +150,18 @@ public class MusicController {
     public Map<String, Object> saveToServer(@RequestBody Map<String, String> data) {
         Map<String, Object> result = new java.util.HashMap<>();
         
-        String artist = data.getOrDefault("artist", "未知歌手").replaceAll("[/\\\\:*?\"<>|]", "_");
-        String album = data.getOrDefault("album", "未知专辑").replaceAll("[/\\\\:*?\"<>|]", "_");
-        String songName = data.getOrDefault("songName", "未知歌曲").replaceAll("[/\\\\:*?\"<>|]", "_");
+        String rawArtist = data.getOrDefault("artist", "未知歌手");
+        String rawAlbum = data.getOrDefault("album", "未知专辑");
+        String rawSongName = data.getOrDefault("songName", "未知歌曲");
+
+        String artist = rawArtist.replaceAll("[/\\\\:*?\"<>|]", "_");
+        
+        // 处理未知专辑逻辑：如果是未知专辑，使用歌曲名作为专辑名
+        boolean isUnknownAlbum = rawAlbum == null || rawAlbum.trim().isEmpty() || "未知专辑".equals(rawAlbum);
+        String albumNameForDir = isUnknownAlbum ? rawSongName : rawAlbum;
+        String album = albumNameForDir.replaceAll("[/\\\\:*?\"<>|]", "_");
+        
+        String songName = rawSongName.replaceAll("[/\\\\:*?\"<>|]", "_");
         
         String audioUrl = data.get("audioUrl");
         String lyricText = data.get("lyricText");
@@ -206,10 +218,16 @@ public class MusicController {
             }
 
             // C. 封面
+            File coverFile = null;
             if (coverUrl != null && !coverUrl.isEmpty()) {
-                File coverFile = new File(albumDir, prefix + "-cover.jpg");
+                coverFile = new File(albumDir, prefix + "-cover.jpg");
                 downloadUrlToFile(coverUrl, coverFile);
             }
+
+            // 4. 补充元数据
+            // 使用原始字符串（非文件名安全处理后的）写入Tag，除非是未知专辑的处理结果
+            String tagAlbum = isUnknownAlbum ? rawSongName : rawAlbum;
+            audioTagService.setAudioTags(audioFile, rawSongName, rawArtist, tagAlbum, String.valueOf(nextIndex), coverFile);
 
             result.put("code", 200);
             result.put("msg", "Saved successfully");
