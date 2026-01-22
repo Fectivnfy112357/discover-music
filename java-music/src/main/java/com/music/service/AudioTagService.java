@@ -7,6 +7,7 @@ import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.images.Artwork;
 import org.jaudiotagger.tag.images.StandardArtwork;
+import org.jaudiotagger.tag.reference.PictureTypes;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -44,6 +45,7 @@ public class AudioTagService {
                     
                     Artwork artwork = StandardArtwork.createArtworkFromFile(coverFile);
                     tag.setField(artwork);
+                    artwork.setPictureType(PictureTypes.DEFAULT_ID);
                 } catch (Exception e) {
                     log.error("Error setting cover art: {}", e.getMessage());
                 }

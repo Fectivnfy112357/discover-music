@@ -234,7 +234,7 @@ public class MusicController {
             File coverFile = null;
             if (coverUrl != null && !coverUrl.isEmpty()) {
                 try {
-                    coverFile = new File(albumDir, prefix + "-cover.jpg");
+                    coverFile = new File(albumDir, "cover.jpg");
                     downloadUrlToFile(coverUrl, coverFile);
                 } catch (Exception e) {
                     log.error("Cover download error: url={}", coverUrl, e);
