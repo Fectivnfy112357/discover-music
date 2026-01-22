@@ -48,12 +48,18 @@ public class MusicController {
                          @RequestParam(defaultValue = "1") int page) {
         try {
             switch (source.toLowerCase()) {
-                case "kw": return musicService.searchKw(keyword, page);
-                case "wy": return musicService.searchWy(keyword, page);
-                case "kg": return musicService.searchKg(keyword, page);
-                case "tx": return musicService.searchTx(keyword, page);
-                case "mg": return musicService.searchMg(keyword, page);
-                default: return "{\"error\": \"Unsupported source\"}";
+                case "kw":
+                    return musicService.searchKw(keyword, page);
+                case "wy":
+                    return musicService.searchWy(keyword, page);
+                case "kg":
+                    return musicService.searchKg(keyword, page);
+                case "tx":
+                    return musicService.searchTx(keyword, page);
+                case "mg":
+                    return musicService.searchMg(keyword, page);
+                default:
+                    return "{\"error\": \"Unsupported source\"}";
             }
         } catch (Exception e) {
             log.error("Search error: source={}, keyword={}", source, keyword, e);
@@ -67,12 +73,18 @@ public class MusicController {
                          @RequestParam(defaultValue = "standard") String level) {
         try {
             switch (source.toLowerCase()) {
-                case "kw": return musicService.detailKw(id, level);
-                case "wy": return musicService.detailWy(id, level);
-                case "kg": return musicService.detailKg(id, level);
-                case "tx": return musicService.detailTx(id, level);
-                case "mg": return musicService.detailMg(id, level);
-                default: return "{\"error\": \"Unsupported source\"}";
+                case "kw":
+                    return musicService.detailKw(id, level);
+                case "wy":
+                    return musicService.detailWy(id, level);
+                case "kg":
+                    return musicService.detailKg(id, level);
+                case "tx":
+                    return musicService.detailTx(id, level);
+                case "mg":
+                    return musicService.detailMg(id, level);
+                default:
+                    return "{\"error\": \"Unsupported source\"}";
             }
         } catch (Exception e) {
             log.error("Detail error: source={}, id={}", source, id, e);
@@ -95,7 +107,7 @@ public class MusicController {
                 String encodedFilename = URLEncoder.encode(name, "UTF-8").replaceAll("\\+", "%20");
                 response.setContentType("application/octet-stream");
                 response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodedFilename);
-                
+
                 try (InputStream is = okResponse.body().byteStream();
                      OutputStream os = response.getOutputStream()) {
                     byte[] buffer = new byte[8192];
@@ -117,7 +129,7 @@ public class MusicController {
     @PostMapping("/download/batch")
     public void downloadBatch(@RequestBody Map<String, String> data, HttpServletResponse response) {
         String fileName = data.getOrDefault("fileName", "music.zip");
-        
+
         try {
             String encodedFilename = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
             response.setContentType("application/zip");
@@ -149,20 +161,20 @@ public class MusicController {
     @PostMapping("/save-to-server")
     public Map<String, Object> saveToServer(@RequestBody Map<String, String> data) {
         Map<String, Object> result = new java.util.HashMap<>();
-        
+
         String rawArtist = data.getOrDefault("artist", "未知歌手");
         String rawAlbum = data.getOrDefault("album", "未知专辑");
         String rawSongName = data.getOrDefault("songName", "未知歌曲");
 
         String artist = rawArtist.replaceAll("[/\\\\:*?\"<>|]", "_");
-        
+
         // 处理未知专辑逻辑：如果是未知专辑，使用歌曲名作为专辑名
         boolean isUnknownAlbum = rawAlbum == null || rawAlbum.trim().isEmpty() || "未知专辑".equals(rawAlbum);
         String albumNameForDir = isUnknownAlbum ? rawSongName : rawAlbum;
         String album = albumNameForDir.replaceAll("[/\\\\:*?\"<>|]", "_");
-        
+
         String songName = rawSongName.replaceAll("[/\\\\:*?\"<>|]", "_");
-        
+
         String audioUrl = data.get("audioUrl");
         String lyricText = data.get("lyricText");
         String coverUrl = data.get("coverUrl");
@@ -196,7 +208,8 @@ public class MusicController {
                         try {
                             int index = Integer.parseInt(matcher.group(1));
                             if (index > maxIndex) maxIndex = index;
-                        } catch (NumberFormatException ignored) {}
+                        } catch (NumberFormatException ignored) {
+                        }
                     }
                 }
             }
@@ -220,8 +233,12 @@ public class MusicController {
             // C. 封面
             File coverFile = null;
             if (coverUrl != null && !coverUrl.isEmpty()) {
-                coverFile = new File(albumDir, prefix + "-cover.jpg");
-                downloadUrlToFile(coverUrl, coverFile);
+                try {
+                    coverFile = new File(albumDir, prefix + "-cover.jpg");
+                    downloadUrlToFile(coverUrl, coverFile);
+                } catch (Exception e) {
+                    log.error("Cover download error: url={}", coverUrl, e);
+                }
             }
 
             // 4. 补充元数据
