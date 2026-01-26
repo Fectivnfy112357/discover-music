@@ -2,11 +2,12 @@ package com.music.util;
 
 import okhttp3.*;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class HttpUtil {
-    private static final OkHttpClient client = new OkHttpClient.Builder()
+    public static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build();
@@ -23,21 +24,51 @@ public class HttpUtil {
     }
 
     public static String get(String url) throws IOException {
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String nonce = generateRandomString(8);
+        return get(url, null);
+    }
 
-        // 如果 URL 已经包含参数，用 & 连接，否则用 ?
-        String separator = url.contains("?") ? "&" : "?";
-        String finalUrl = url + separator + "_ts=" + timestamp + "&_nc=" + nonce;
+    public static String get(String url, Map<String, String> headers) throws IOException {
+        Request.Builder builder = new Request.Builder().url(url);
+        if (headers != null) {
+            headers.forEach(builder::addHeader);
+        }
+        // Default headers if not present
+        if (headers == null || !headers.containsKey("User-Agent")) {
+            builder.addHeader("User-Agent", "okhttp/4.12.0");
+        }
 
-        Request request = new Request.Builder()
-                .url(finalUrl)
-                .addHeader("X-Timestamp", timestamp)
-                .addHeader("X-Nonce", nonce)
-                .addHeader("User-Agent", "okhttp/4.12.0")
-                .build();
+        try (Response response = client.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            return response.body() != null ? response.body().string() : "";
+        }
+    }
 
-        try (Response response = client.newCall(request).execute()) {
+    public static String post(String url, String json, Map<String, String> headers) throws IOException {
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json; charset=utf-8"));
+        Request.Builder builder = new Request.Builder().url(url).post(body);
+        
+        if (headers != null) {
+            headers.forEach(builder::addHeader);
+        }
+        
+        try (Response response = client.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            return response.body() != null ? response.body().string() : "";
+        }
+    }
+
+    public static String postForm(String url, Map<String, String> params, Map<String, String> headers) throws IOException {
+        FormBody.Builder formBuilder = new FormBody.Builder();
+        if (params != null) {
+            params.forEach(formBuilder::add);
+        }
+        Request.Builder builder = new Request.Builder().url(url).post(formBuilder.build());
+
+        if (headers != null) {
+            headers.forEach(builder::addHeader);
+        }
+
+        try (Response response = client.newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             return response.body() != null ? response.body().string() : "";
         }
