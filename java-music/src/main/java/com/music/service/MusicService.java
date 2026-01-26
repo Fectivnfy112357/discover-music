@@ -95,12 +95,14 @@ public class MusicService {
         headers.put("Origin", "https://music.163.com");
 
         String body = "params=" + encryptedParams;
-        String response = HttpUtil.postForm("http://interface.music.163.com/eapi/batch", 
-            new HashMap<String, String>() {{ put("params", encryptedParams); }}, headers);
+        String response = HttpUtil.postForm("http://interface.music.163.com/eapi/batch",
+                new HashMap<String, String>() {{
+                    put("params", encryptedParams);
+                }}, headers);
 
         JSONObject json = JSON.parseObject(response);
         if (json.containsKey("result")) json = json.getJSONObject("result");
-        
+
         JSONArray songs = json.getJSONArray("songs");
         JSONArray resultList = new JSONArray();
         if (songs != null) {
@@ -112,83 +114,87 @@ public class MusicService {
         return buildSuccessResponse(resultList, "网易云音乐:本地官方API");
     }
 
-    private JSONObject processWySongData(JSONObject song) {
-        try {
-            JSONObject res = new JSONObject();
-            String id = song.getString("id");
-            if (id == null) return null;
-            
-            res.put("rid", id);
-            res.put("name", song.getString("name"));
-            res.put("artist", getWyArtistName(song.getJSONArray("ar")));
-            
-            JSONObject album = song.getJSONObject("al");
-            if (album != null) {
-                res.put("album", album.getString("name"));
-                res.put("pic", album.getString("picUrl"));
-            } else {
-                res.put("album", "");
-                res.put("pic", "");
-            }
-            
-            res.put("duration", formatDuration(song.getIntValue("dt") / 1000));
-            
-            JSONArray quality = new JSONArray();
-            
-            // 获取最大音质级别
-            String maxBrLevel = "";
-            JSONObject privilege = song.getJSONObject("privilege");
-            if (privilege != null) {
-                maxBrLevel = privilege.getString("maxBrLevel");
-            }
-            
-            // 普通音质 (l)
-            JSONObject l = song.getJSONObject("l");
-            if (l != null && l.getLongValue("size") > 0) {
-                addQuality(quality, formatFileSize(l.getLongValue("size")), "普通音质MP3", "standard");
-            }
-            
-            // 高音质 (h)
-            JSONObject h = song.getJSONObject("h");
-            if (h != null && h.getLongValue("size") > 0) {
-                addQuality(quality, formatFileSize(h.getLongValue("size")), "高音质MP3", "exhigh");
-            }
-            
-            // 无损音质 (sq)
-            JSONObject sq = song.getJSONObject("sq");
-            if (sq != null && sq.getLongValue("size") > 0) {
-                addQuality(quality, formatFileSize(sq.getLongValue("size")), "无损音质FLAC", "lossless");
-            }
-            
-            // 超清母带 (hr / hires)
-            if ("hires".equals(maxBrLevel)) {
-                JSONObject hr = song.getJSONObject("hr");
-                String size = "未知大小";
-                if (hr != null && hr.getLongValue("size") > 0) {
-                    size = formatFileSize(hr.getLongValue("size"));
+        private JSONObject processWySongData(JSONObject song) {
+            try {
+                JSONObject res = new JSONObject();
+                String id = song.getString("id");
+                if (id == null) return null;
+                
+                res.put("rid", id);
+                res.put("name", song.getString("name"));
+                res.put("artist", getWyArtistName(song.getJSONArray("ar")));
+                
+                JSONObject album = song.getJSONObject("al");
+                if (album != null) {
+                    res.put("album", album.getString("name"));
+                    res.put("pic", album.getString("picUrl"));
+                } else {
+                    res.put("album", "");
+                    res.put("pic", "");
                 }
-                addQuality(quality, size, "超清母带FLAC", "jymaster");
+                
+                res.put("duration", formatDuration(song.getIntValue("dt") / 1000));
+                
+                JSONArray quality = new JSONArray();
+                
+                // 获取最大音质级别
+                String maxBrLevel = "";
+                JSONObject privilege = song.getJSONObject("privilege");
+                if (privilege != null) {
+                    maxBrLevel = privilege.getString("maxBrLevel");
+                }
+                
+                // Standard: Check 'm' (Medium/128k) first, fallback to 'l' (Low/96k)
+                JSONObject m = song.getJSONObject("m");
+                if (m != null && m.getLongValue("size") > 0) {
+                    addQuality(quality, formatFileSize(m.getLongValue("size")), "普通音质MP3", "standard");
+                } else {
+                    JSONObject l = song.getJSONObject("l");
+                    if (l != null && l.getLongValue("size") > 0) {
+                        addQuality(quality, formatFileSize(l.getLongValue("size")), "低音质MP3", "standard");
+                    }
+                }
+                
+                // High (h)
+                JSONObject h = song.getJSONObject("h");
+                if (h != null && h.getLongValue("size") > 0) {
+                    addQuality(quality, formatFileSize(h.getLongValue("size")), "高音质MP3", "exhigh");
+                }
+                
+                // Lossless (sq)
+                JSONObject sq = song.getJSONObject("sq");
+                if (sq != null && sq.getLongValue("size") > 0) {
+                    addQuality(quality, formatFileSize(sq.getLongValue("size")), "无损音质FLAC", "lossless");
+                }
+                
+                // 超清母带 (hr / hires)
+                if ("hires".equals(maxBrLevel)) {
+                    JSONObject hr = song.getJSONObject("hr");
+                    String size = "未知大小";
+                    if (hr != null && hr.getLongValue("size") > 0) {
+                        size = formatFileSize(hr.getLongValue("size"));
+                    }
+                    addQuality(quality, size, "超清母带FLAC", "jymaster");
+                }
+                
+                if (quality.isEmpty()) {
+                    addQuality(quality, "未知大小", "普通音质MP3", "standard");
+                }
+                
+                res.put("quality", quality);
+                return res;
+            } catch (Exception e) {
+                log.error("处理网易云歌曲数据失败", e);
+                return null;
             }
-            
-            if (quality.isEmpty()) {
-                addQuality(quality, "未知大小", "普通音质MP3", "standard");
-            }
-            
-            res.put("quality", quality);
-            return res;
-        } catch (Exception e) {
-            log.error("处理网易云歌曲数据失败", e);
-            return null;
         }
-    }
-
     /**
      * 小狗源 (kg) 搜索 - 酷狗
      */
     public String searchKg(String keyword, int page) throws IOException {
         String url = "https://songsearch.kugou.com/song_search_v2?keyword=" + URLEncoder.encode(keyword, "UTF-8") +
                 "&page=" + page + "&pagesize=30&platform=WebFilter";
-        
+
         String response = HttpUtil.get(url);
         JSONObject json = JSON.parseObject(response);
         JSONArray lists = json.getJSONObject("data").getJSONArray("lists");
@@ -204,7 +210,7 @@ public class MusicService {
                 processed.put("album", song.getString("AlbumName"));
                 processed.put("pic", ""); // 酷狗搜索结果通常不带图，详情才有
                 processed.put("duration", formatDuration(song.getIntValue("Duration")));
-                
+
                 JSONArray quality = new JSONArray();
                 if (song.getLongValue("FileSize") > 0) {
                     addQuality(quality, formatFileSize(song.getLongValue("FileSize")), "普通音质MP3", "standard");
@@ -221,7 +227,7 @@ public class MusicService {
                 if (quality.isEmpty()) {
                     addQuality(quality, "未知大小", "普通音质MP3", "standard");
                 }
-                
+
                 processed.put("quality", quality);
                 resultList.add(processed);
             }
@@ -288,40 +294,40 @@ public class MusicService {
 
         String response = HttpUtil.post("https://u.y.qq.com/cgi-bin/musicu.fcg", reqData.toJSONString(), headers);
         JSONObject json = JSON.parseObject(response);
-        
+
         JSONArray list = null;
         // 增强的解析逻辑，与 Kotlin extractQqSongs 保持一致
         if (json.containsKey("req") && json.getJSONObject("req").containsKey("data")) {
-             JSONObject data = json.getJSONObject("req").getJSONObject("data");
-             if (data.containsKey("item_song")) {
-                 list = data.getJSONArray("item_song");
-             } else if (data.containsKey("body") && data.getJSONObject("body").containsKey("item_song")) {
-                 list = data.getJSONObject("body").getJSONArray("item_song");
-             } else if (data.containsKey("song")) {
-                 list = data.getJSONArray("song");
-             } else if (data.containsKey("list")) {
-                 list = data.getJSONArray("list");
-             }
+            JSONObject data = json.getJSONObject("req").getJSONObject("data");
+            if (data.containsKey("item_song")) {
+                list = data.getJSONArray("item_song");
+            } else if (data.containsKey("body") && data.getJSONObject("body").containsKey("item_song")) {
+                list = data.getJSONObject("body").getJSONArray("item_song");
+            } else if (data.containsKey("song")) {
+                list = data.getJSONArray("song");
+            } else if (data.containsKey("list")) {
+                list = data.getJSONArray("list");
+            }
         }
-        
+
         // 最后的兜底：如果还找不到，尝试遍历 data 的所有 key (Kotlin 逻辑)
         if (list == null && json.containsKey("req") && json.getJSONObject("req").containsKey("data")) {
             JSONObject data = json.getJSONObject("req").getJSONObject("data");
-             for (String key : data.keySet()) {
-                 Object val = data.get(key);
-                 if (val instanceof JSONObject && ((JSONObject) val).containsKey("file")) {
-                     if (list == null) list = new JSONArray();
-                     list.add(val);
-                 }
-             }
+            for (String key : data.keySet()) {
+                Object val = data.get(key);
+                if (val instanceof JSONObject && ((JSONObject) val).containsKey("file")) {
+                    if (list == null) list = new JSONArray();
+                    list.add(val);
+                }
+            }
         }
-        
+
         JSONArray resultList = new JSONArray();
         if (list != null) {
             for (int i = 0; i < list.size(); i++) {
                 JSONObject song = list.getJSONObject(i);
                 JSONObject processed = new JSONObject();
-                
+
                 // 确保有 mid 且 file 对象存在 (Kotlin 逻辑: song.has("file") && song.has("mid"))
                 if (!song.containsKey("mid") || !song.containsKey("file")) continue;
 
@@ -333,7 +339,7 @@ public class MusicService {
                 }
                 processed.put("name", name);
                 processed.put("artist", getQqArtistName(song.getJSONArray("singer")));
-                
+
                 String albumName = "";
                 String albumMid = "";
                 if (song.containsKey("album")) {
@@ -342,7 +348,7 @@ public class MusicService {
                     albumMid = album.getString("mid");
                 }
                 processed.put("album", albumName);
-                
+
                 // 封面逻辑优化
                 String pic = "";
                 if (albumMid != null && !albumMid.isEmpty() && !"空".equals(albumMid)) {
@@ -358,16 +364,20 @@ public class MusicService {
                 }
                 processed.put("pic", pic);
                 processed.put("duration", formatDuration(song.getIntValue("interval")));
-                
+
                 // 音质解析
                 JSONArray quality = new JSONArray();
                 JSONObject file = song.getJSONObject("file");
-                if (file.getLongValue("size_128mp3") > 0) addQuality(quality, formatFileSize(file.getLongValue("size_128mp3")), "普通音质MP3", "standard");
-                if (file.getLongValue("size_320mp3") > 0) addQuality(quality, formatFileSize(file.getLongValue("size_320mp3")), "高音质MP3", "exhigh");
-                if (file.getLongValue("size_flac") > 0) addQuality(quality, formatFileSize(file.getLongValue("size_flac")), "无损音质FLAC", "lossless");
-                if (file.getLongValue("size_hires") > 0) addQuality(quality, formatFileSize(file.getLongValue("size_hires")), "超清母带FLAC", "jymaster");
+                if (file.getLongValue("size_128mp3") > 0)
+                    addQuality(quality, formatFileSize(file.getLongValue("size_128mp3")), "普通音质MP3", "standard");
+                if (file.getLongValue("size_320mp3") > 0)
+                    addQuality(quality, formatFileSize(file.getLongValue("size_320mp3")), "高音质MP3", "exhigh");
+                if (file.getLongValue("size_flac") > 0)
+                    addQuality(quality, formatFileSize(file.getLongValue("size_flac")), "无损音质FLAC", "lossless");
+                if (file.getLongValue("size_hires") > 0)
+                    addQuality(quality, formatFileSize(file.getLongValue("size_hires")), "超清母带FLAC", "jymaster");
                 if (quality.isEmpty()) addQuality(quality, "未知大小", "普通音质MP3", "standard");
-                
+
                 processed.put("quality", quality);
                 resultList.add(processed);
             }
@@ -381,12 +391,12 @@ public class MusicService {
     public String searchMg(String keyword, int page) throws IOException {
         String timestamp = String.valueOf(System.currentTimeMillis());
         Map<String, String> sig = CryptoUtil.createMgSignature(timestamp, keyword);
-        
+
         String searchSwitch = "{\"song\":1,\"album\":0,\"singer\":0,\"tagSong\":1,\"mvSong\":0,\"bestShow\":1,\"songlist\":0,\"lyricSong\":0}";
-        String url = "https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=" + 
-                URLEncoder.encode(searchSwitch, "UTF-8") + "&pageSize=30&text=" + 
+        String url = "https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=" +
+                URLEncoder.encode(searchSwitch, "UTF-8") + "&pageSize=30&text=" +
                 URLEncoder.encode(keyword, "UTF-8") + "&pageNo=" + page + "&sort=0&sid=USS";
-        
+
         Map<String, String> headers = new HashMap<>();
         headers.put("uiVersion", "A_music_3.6.1");
         headers.put("deviceId", sig.get("deviceId"));
@@ -398,7 +408,7 @@ public class MusicService {
         String response = HttpUtil.get(url, headers);
         JSONObject json = JSON.parseObject(response);
         JSONArray resultList = new JSONArray();
-        
+
         JSONObject songResultData = json.getJSONObject("songResultData");
         if (songResultData != null) {
             JSONArray lists = songResultData.getJSONArray("resultList");
@@ -414,28 +424,32 @@ public class MusicService {
                         processed.put("name", song.getString("name"));
                         processed.put("artist", getMgArtistName(song.getJSONArray("singerList")));
                         processed.put("album", song.getString("album"));
-                        processed.put("pic", song.getString("img1"));
+                        processed.put("pic", getMgCover(song));
                         processed.put("duration", "未知");
-                        
+
                         JSONArray quality = new JSONArray();
                         JSONArray audioFormats = song.getJSONArray("audioFormats");
                         if (audioFormats != null) {
-                             for(int k=0; k<audioFormats.size(); k++) {
-                                 JSONObject fmt = audioFormats.getJSONObject(k);
-                                 String formatType = fmt.getString("formatType");
-                                 long size = fmt.containsKey("asize") ? fmt.getLongValue("asize") : fmt.getLongValue("isize");
-                                 
-                                 if ("PQ".equals(formatType)) addQuality(quality, formatFileSize(size), "普通音质MP3", "standard");
-                                 else if ("HQ".equals(formatType)) addQuality(quality, formatFileSize(size), "高音质MP3", "exhigh");
-                                 else if ("SQ".equals(formatType)) addQuality(quality, formatFileSize(size), "无损音质FLAC", "lossless");
-                                 else if ("ZQ24".equals(formatType)) addQuality(quality, formatFileSize(size), "超清母带FLAC", "jymaster");
-                             }
+                            for (int k = 0; k < audioFormats.size(); k++) {
+                                JSONObject fmt = audioFormats.getJSONObject(k);
+                                String formatType = fmt.getString("formatType");
+                                long size = fmt.containsKey("asize") ? fmt.getLongValue("asize") : fmt.getLongValue("isize");
+
+                                if ("PQ".equals(formatType))
+                                    addQuality(quality, formatFileSize(size), "普通音质MP3", "standard");
+                                else if ("HQ".equals(formatType))
+                                    addQuality(quality, formatFileSize(size), "高音质MP3", "exhigh");
+                                else if ("SQ".equals(formatType))
+                                    addQuality(quality, formatFileSize(size), "无损音质FLAC", "lossless");
+                                else if ("ZQ24".equals(formatType))
+                                    addQuality(quality, formatFileSize(size), "超清母带FLAC", "jymaster");
+                            }
                         }
-                        
+
                         if (quality.isEmpty()) {
                             addQuality(quality, "未知", "普通音质MP3", "standard");
                         }
-                        
+
                         processed.put("quality", quality);
                         resultList.add(processed);
                     }
@@ -447,20 +461,27 @@ public class MusicService {
 
     // --- 详情接口逻辑 ---
 
-    public String detailKw(String rid, String level) throws IOException { return getDetail("kw", rid, level); }
+    public String detailKw(String rid, String level) throws IOException {
+        return getDetail("kw", rid, level);
+    }
+
     public String detailWy(String rid, String level) throws IOException {
         JSONObject resultData = new JSONObject();
-        
+
         // 1. 获取基础详情 (Metadata)
         try {
             JSONObject params = new JSONObject();
             params.put("c", "[{\"id\":" + rid + "}]");
             params.put("ids", "[" + rid + "]");
             String enc = CryptoUtil.wyEapiEncrypt("/api/v3/song/detail", params.toJSONString());
-            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/v3/song/detail", 
-                new HashMap<String, String>() {{ put("params", enc); }}, 
-                new HashMap<String, String>() {{ put("Origin", "https://music.163.com"); }});
-            
+            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/v3/song/detail",
+                    new HashMap<String, String>() {{
+                        put("params", enc);
+                    }},
+                    new HashMap<String, String>() {{
+                        put("Origin", "https://music.163.com");
+                    }});
+
             JSONObject json = JSON.parseObject(resp);
             if (json.containsKey("songs")) {
                 JSONArray songs = json.getJSONArray("songs");
@@ -484,10 +505,14 @@ public class MusicService {
             params.put("level", level);
             params.put("encodeType", "flac");
             String enc = CryptoUtil.wyEapiEncrypt("/api/song/enhance/player/url/v1", params.toJSONString());
-            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/song/enhance/player/url/v1", 
-                 new HashMap<String, String>() {{ put("params", enc); }}, 
-                 new HashMap<String, String>() {{ put("Origin", "https://music.163.com"); }});
-            
+            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/song/enhance/player/url/v1",
+                    new HashMap<String, String>() {{
+                        put("params", enc);
+                    }},
+                    new HashMap<String, String>() {{
+                        put("Origin", "https://music.163.com");
+                    }});
+
             JSONObject json = JSON.parseObject(resp);
             if (json.containsKey("data")) {
                 JSONArray data = json.getJSONArray("data");
@@ -500,7 +525,7 @@ public class MusicService {
                 }
             }
         } catch (Exception e) {
-             log.error("Wy url error", e);
+            log.error("Wy url error", e);
         }
 
         // 3. 获取歌词 (Lyric)
@@ -511,31 +536,44 @@ public class MusicService {
             params.put("kv", "-1");
             params.put("tv", "-1");
             String enc = CryptoUtil.wyEapiEncrypt("/api/song/lyric", params.toJSONString());
-            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/song/lyric", 
-                 new HashMap<String, String>() {{ put("params", enc); }}, 
-                 new HashMap<String, String>() {{ put("Origin", "https://music.163.com"); }});
-            
+            String resp = HttpUtil.postForm("http://interface.music.163.com/eapi/song/lyric",
+                    new HashMap<String, String>() {{
+                        put("params", enc);
+                    }},
+                    new HashMap<String, String>() {{
+                        put("Origin", "https://music.163.com");
+                    }});
+
             JSONObject json = JSON.parseObject(resp);
             if (json.containsKey("lrc")) {
                 resultData.put("lrc", json.getJSONObject("lrc").getString("lyric"));
             }
         } catch (Exception e) {
-             log.error("Wy lrc error", e);
+            log.error("Wy lrc error", e);
         }
-        
+
         // 构造最终返回
         JSONObject finalRes = new JSONObject();
         finalRes.put("code", 200);
         finalRes.put("data", resultData);
         finalRes.put("_method", "网易云音乐:本地官方API聚合");
-        
+
         return finalRes.toJSONString();
     }
-    public String detailKg(String rid, String level) throws IOException { return getDetail("kg", rid, level); }
-    public String detailTx(String rid, String level) throws IOException { return getDetail("tx", rid, level); }
-    public String detailMg(String rid, String level) throws IOException { return getDetail("mg", rid, level); }
 
-    private String getDetail(String platform, String rid, String level) throws IOException { 
+    public String detailKg(String rid, String level) throws IOException {
+        return getDetail("kg", rid, level);
+    }
+
+    public String detailTx(String rid, String level) throws IOException {
+        return getDetail("tx", rid, level);
+    }
+
+    public String detailMg(String rid, String level) throws IOException {
+        return getDetail("mg", rid, level);
+    }
+
+    private String getDetail(String platform, String rid, String level) throws IOException {
         String url = buildDetailUrl(platform, rid, level);
         log.info("Requesting detail: platform={}, url={}", platform, url);
         return HttpUtil.get(url);
@@ -548,8 +586,8 @@ public class MusicService {
 
         StringBuilder sb = new StringBuilder();
         sb.append(config.getString("protocol")).append("://")
-          .append(config.getString("domain"))
-          .append(config.getString("path")).append("?");
+                .append(config.getString("domain"))
+                .append(config.getString("path")).append("?");
 
         JSONObject params = config.getJSONObject("params");
         for (String key : params.keySet()) {
@@ -600,6 +638,20 @@ public class MusicService {
         return "https://img4.kuwo.cn/star/albumcover/" + shortPic;
     }
 
+    private String getMgCover(JSONObject song) {
+        String[] keys = {"img3", "img2", "img1"};
+        for (String key : keys) {
+            String url = song.getString(key);
+            if (url != null && !url.isEmpty()) {
+                if (!url.startsWith("http")) {
+                    return "http://d.musicapp.migu.cn" + url;
+                }
+                return url;
+            }
+        }
+        return "";
+    }
+
     private JSONArray parseKwQualityInfo(String nMinfo) {
         JSONArray res = new JSONArray();
         if (nMinfo == null || nMinfo.isEmpty()) {
@@ -616,7 +668,7 @@ public class MusicService {
             if (matcher.find()) {
                 String bitrate = matcher.group(2);
                 String sizeStr = matcher.group(4);
-                
+
                 JSONObject q = new JSONObject();
                 boolean matched = false;
 
