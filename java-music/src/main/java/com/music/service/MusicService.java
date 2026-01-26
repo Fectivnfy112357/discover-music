@@ -436,12 +436,86 @@ public class MusicService {
     private JSONArray parseKwQualityInfo(String nMinfo) {
         JSONArray res = new JSONArray();
         if (nMinfo == null || nMinfo.isEmpty()) {
-            addQuality(res, "未知", "普通音质MP3", "standard");
+            addQuality(res, "未知大小", "普通音质MP3", "standard");
             return res;
         }
-        // 简单模拟解析，实际根据 level,bitrate 等解析
-        addQuality(res, "未知", "标准音质", "standard");
+
+        List<JSONObject> qualities = new ArrayList<>();
+        String[] parts = nMinfo.split(";");
+        Pattern pattern = Pattern.compile("level:(\\w+),bitrate:(\\d+),format:(\\w+),size:([\\w.]+)");
+
+        for (String part : parts) {
+            Matcher matcher = pattern.matcher(part);
+            if (matcher.find()) {
+                String bitrate = matcher.group(2);
+                String sizeStr = matcher.group(4);
+                
+                JSONObject q = new JSONObject();
+                boolean matched = false;
+
+                if ("128".equals(bitrate)) {
+                    q.put("size", formatKwFileSize(sizeStr));
+                    q.put("quality", "普通音质MP3");
+                    q.put("level", "standard");
+                    matched = true;
+                } else if ("320".equals(bitrate)) {
+                    q.put("size", formatKwFileSize(sizeStr));
+                    q.put("quality", "高音质MP3");
+                    q.put("level", "exhigh");
+                    matched = true;
+                } else if ("2000".equals(bitrate)) {
+                    q.put("size", formatKwFileSize(sizeStr));
+                    q.put("quality", "无损音质FLAC");
+                    q.put("level", "lossless");
+                    matched = true;
+                } else if ("4000".equals(bitrate)) {
+                    q.put("size", formatKwFileSize(sizeStr));
+                    q.put("quality", "超清母带FLAC");
+                    q.put("level", "jymaster");
+                    matched = true;
+                }
+
+                if (matched) {
+                    qualities.add(q);
+                }
+            }
+        }
+
+        // 反转列表，高质量在前？或者根据安卓逻辑 CollectionsKt.reverse(arrayList)
+        // 安卓代码中进行了 reverse，我们也要做
+        for (int i = qualities.size() - 1; i >= 0; i--) {
+            res.add(qualities.get(i));
+        }
+
+        if (res.isEmpty()) {
+            addQuality(res, "未知大小", "普通音质MP3", "standard");
+        }
         return res;
+    }
+
+    private String formatKwFileSize(String sizeStr) {
+        if (sizeStr == null || sizeStr.isEmpty() || "0".equals(sizeStr)) {
+            return "未知大小";
+        }
+        // 如果包含字母，直接转大写返回
+        if (Pattern.compile("[A-Za-z]").matcher(sizeStr).find()) {
+            return sizeStr.toUpperCase();
+        }
+        try {
+            double d = Double.parseDouble(sizeStr);
+            if (d > 0) {
+                String[] units = {"B", "KB", "MB", "GB"};
+                int i = 0;
+                while (d >= 1024 && i < 3) {
+                    d /= 1024;
+                    i++;
+                }
+                return String.format("%.2f %s", d, units[i]);
+            }
+        } catch (NumberFormatException e) {
+            // ignore
+        }
+        return "未知大小";
     }
 
     private String getWyArtistName(JSONArray ar) {
