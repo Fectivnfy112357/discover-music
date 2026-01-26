@@ -12,6 +12,9 @@ public class HttpUtil {
             .readTimeout(30, TimeUnit.SECONDS)
             .build();
 
+    // 修改：使用真实浏览器的 User-Agent，防止被代理或源站拦截
+    private static final String DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
     private static final String CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     public static String generateRandomString(int length) {
@@ -32,9 +35,9 @@ public class HttpUtil {
         if (headers != null) {
             headers.forEach(builder::addHeader);
         }
-        // Default headers if not present
+        // 修改：强制设置 User-Agent
         if (headers == null || !headers.containsKey("User-Agent")) {
-            builder.addHeader("User-Agent", "okhttp/4.12.0");
+            builder.addHeader("User-Agent", DEFAULT_UA);
         }
 
         try (Response response = client.newCall(builder.build()).execute()) {
@@ -46,11 +49,16 @@ public class HttpUtil {
     public static String post(String url, String json, Map<String, String> headers) throws IOException {
         RequestBody body = RequestBody.create(json, MediaType.parse("application/json; charset=utf-8"));
         Request.Builder builder = new Request.Builder().url(url).post(body);
-        
+
         if (headers != null) {
             headers.forEach(builder::addHeader);
         }
-        
+
+        // 修改：强制设置 User-Agent
+        if (headers == null || !headers.containsKey("User-Agent")) {
+            builder.addHeader("User-Agent", DEFAULT_UA);
+        }
+
         try (Response response = client.newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             return response.body() != null ? response.body().string() : "";
@@ -66,6 +74,11 @@ public class HttpUtil {
 
         if (headers != null) {
             headers.forEach(builder::addHeader);
+        }
+
+        // 修改：强制设置 User-Agent
+        if (headers == null || !headers.containsKey("User-Agent")) {
+            builder.addHeader("User-Agent", DEFAULT_UA);
         }
 
         try (Response response = client.newCall(builder.build()).execute()) {
